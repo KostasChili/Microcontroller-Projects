@@ -1,0 +1,65 @@
+.include "m32def.inc"
+
+;set registers as variables 
+.def work=R16
+.def PrevCaptL=R10 ;Previous Capture
+.def PrevCaptH=R11
+.def CurCaptL=R12 ;Current Capture
+.def CurCaptH=R13
+.def IntWorkL=R17 ;Use only in interrupt
+.def IntWorkH=R18
+.def PeriodL=R4 ;Result
+.def PeriodH=R5
+
+;arxikopoihsh diakopwn
+.org 0
+ RJMP setup
+
+ ;diakoph silipsis T1
+.org ICP1addr
+ RJMP IntCapRout
+
+ ;arxikopoihseis
+setup:
+; init SP
+ LDI work,low(RAMEND)
+ OUT SPL,work
+ LDI work,high(RAMEND)
+ OUT SPH,work
+
+ ;set port d san eisodo
+ LDI work, 0b00000000 ;PD6=in
+ OUT DDRD,work
+ LDI work,(1<<TICIE1) ;Enable T1 capture interrupt
+ ;reset simeas diakophs 
+ out TIFR,work
+ OUT TIMSK,work
+
+ ;enable normal mode 
+ LDI work,(0<<WGM11)|(0<<WGM10)
+ OUT TCCR1A,work
+
+ ;timer stars running 
+ LDI work,(1<<CS11)|(1<<ICES1)
+ OUT TCCR1B,work ;Mode 0,P=8, anerxomenh parifi
+ SEI
+loop:
+ NOP
+ NOP
+ NOP
+ RJMP loop
+
+ IntCapRout:
+ IN IntWorkL,SREG
+ PUSH IntWorkL
+ IN CurCaptL,ICR1L
+ IN CurCaptH,ICR1H
+ MOV PeriodL,CurCaptL
+ MOV PeriodH,CurCaptH
+ SUB PeriodL,PrevCaptL
+ SBC PeriodH,PrevCaptH
+ MOV PrevCaptL,CurCaptL ;Previous capture <- current
+ MOV PrevCaptH,CurCaptH
+ POP IntWorkL
+ OUT SREG,IntWorkL
+RETI
